@@ -19,10 +19,12 @@ class GoogleAccountCard extends StatefulWidget {
 class _GoogleAccountCardState extends State<GoogleAccountCard> {
   static const _webClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
   static const _iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+  static Future<void>? _initialization;
+  static GoogleSignInAccount? _lastKnownAccount;
 
-  GoogleSignInAccount? _account;
+  GoogleSignInAccount? _account = _lastKnownAccount;
   StreamSubscription<GoogleSignInAuthenticationEvent>? _authenticationSubscription;
-  bool _isBusy = true;
+  bool _isBusy = _lastKnownAccount == null;
   bool _isConfigured = false;
   bool _isAvailable = false;
 
@@ -48,11 +50,7 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
       }
 
       final signIn = GoogleSignIn.instance;
-      await signIn.initialize(
-        serverClientId: _webClientId,
-        clientId:
-            defaultTargetPlatform == TargetPlatform.iOS ? _iosClientId : null,
-      );
+      await _ensureInitialized(signIn);
       _authenticationSubscription = signIn.authenticationEvents.listen(
         _handleAuthenticationEvent,
         onError: _handleAuthenticationError,
@@ -66,6 +64,18 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
     } catch (_) {
       if (mounted) setState(() => _isBusy = false);
     }
+  }
+
+  Future<void> _ensureInitialized(GoogleSignIn signIn) {
+    return _initialization ??= signIn.initialize(
+      serverClientId: _webClientId,
+      clientId:
+          defaultTargetPlatform == TargetPlatform.iOS ? _iosClientId : null,
+    ).catchError((Object error) {
+      // Allow a later screen visit to retry after a transient init failure.
+      _initialization = null;
+      throw error;
+    });
   }
 
   Future<void> _attemptLightweightAuthentication(GoogleSignIn signIn) async {
@@ -83,11 +93,13 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
       case GoogleSignInAuthenticationEventSignIn(:final user):
         setState(() {
           _account = user;
+          _lastKnownAccount = user;
           _isBusy = false;
         });
       case GoogleSignInAuthenticationEventSignOut():
         setState(() {
           _account = null;
+          _lastKnownAccount = null;
           _isBusy = false;
         });
     }
@@ -112,12 +124,21 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
 
     setState(() => _isBusy = true);
     try {
-      final account = await signIn.authenticate();
+      final account = await signIn.authenticate().timeout(
+        const Duration(seconds: 20),
+      );
       if (!mounted) return;
       setState(() {
         _account = account;
+        _lastKnownAccount = account;
         _isBusy = false;
       });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _isBusy = false);
+      if (_account == null) {
+        _showMessage(S.of(context).googleSignInFailed);
+      }
     } on GoogleSignInException catch (error) {
       if (!mounted) return;
       setState(() => _isBusy = false);
@@ -138,6 +159,7 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
       if (!mounted) return;
       setState(() {
         _account = null;
+        _lastKnownAccount = null;
         _isBusy = false;
       });
     } catch (_) {
