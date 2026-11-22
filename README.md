@@ -105,13 +105,9 @@ If Google sign-in is not configured, the APK still builds, but the Google button
 
 ## Build without installing Flutter or Android SDK
 
-You can build the debug APK on GitHub's hosted runner instead of installing the Android build tools locally:
+The `google-signin-apk` branch builds a signed release APK on GitHub Actions, so Flutter and Android SDK do not need to be installed on your PC. The workflow uses the repository's `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, and `ANDROID_KEY_ALIAS` Actions secrets. It also reads `GOOGLE_SERVER_CLIENT_ID` from Actions variables to enable Google sign-in.
 
-1. Fork this repository to your GitHub account and push your modified project to that fork's `google-signin-apk` branch.
-2. The push starts **Build Debug APK** automatically. Open the fork's **Actions** tab and wait for the run to finish.
-3. Open the run and download the `fluxtube-debug-apk` artifact.
-
-To enable Google sign-in in the cloud build, add a repository variable named `GOOGLE_SERVER_CLIENT_ID` under **Settings → Secrets and variables → Actions → Variables**. The APK can still be built without it, but sign-in remains disabled. This workflow produces a debug APK; a publishable release APK requires a release signing key.
+After the Google OAuth clients are configured for this app's Android package and signing certificate, set `GOOGLE_SERVER_CLIENT_ID` under **Settings → Secrets and variables → Actions → Variables**. Push to `google-signin-apk` or run **Build Signed Release APK** from the **Actions** tab. Download `fluxtube-apk` from the completed run. Keep the signing key and its passwords private; future APK updates must use the same key.
 
 ## FluxTube vs NewPipe App
 
