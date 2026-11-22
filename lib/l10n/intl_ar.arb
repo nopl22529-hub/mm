@@ -1,4 +1,10 @@
 {
+  "googleAccountConnected": "تم ربط حساب Google",
+  "googleSignIn": "تسجيل الدخول باستخدام Google",
+  "googleSignOut": "تسجيل الخروج",
+  "googleSignInSetupHint": "يلزم إعداد معرّفات OAuth لتسجيل الدخول بحساب Google. راجع دليل الإعداد في README.",
+  "googleSignInFailed": "تعذر تسجيل الدخول إلى Google. راجع الإعدادات وحاول مرة أخرى.",
+  "googleSignInUnavailable": "تسجيل الدخول بحساب Google غير متاح على هذا الجهاز.",
   "home": "الرئيسية",
   "@home": {
     "description": "Home label"

@@ -1,4 +1,10 @@
 {
+  "googleAccountConnected": "Google account connected",
+  "googleSignIn": "Sign in with Google",
+  "googleSignOut": "Sign out",
+  "googleSignInSetupHint": "Google sign-in needs OAuth client IDs. See the setup guide in README.",
+  "googleSignInFailed": "Could not sign in with Google. Check your setup and try again.",
+  "googleSignInUnavailable": "Google sign-in is unavailable on this device.",
   "home": "Home",
   "themeSystem": "System",
   "themeLight": "Light",

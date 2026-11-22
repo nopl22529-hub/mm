@@ -54,6 +54,48 @@ class S {
     return Localizations.of<S>(context, S);
   }
 
+  String get googleAccountConnected => Intl.message(
+        'Google account connected',
+        name: 'googleAccountConnected',
+        desc: '',
+        args: [],
+      );
+
+  String get googleSignIn => Intl.message(
+        'Sign in with Google',
+        name: 'googleSignIn',
+        desc: '',
+        args: [],
+      );
+
+  String get googleSignOut => Intl.message(
+        'Sign out',
+        name: 'googleSignOut',
+        desc: '',
+        args: [],
+      );
+
+  String get googleSignInSetupHint => Intl.message(
+        'Google sign-in needs OAuth client IDs. See the setup guide in README.',
+        name: 'googleSignInSetupHint',
+        desc: '',
+        args: [],
+      );
+
+  String get googleSignInFailed => Intl.message(
+        'Could not sign in with Google. Check your setup and try again.',
+        name: 'googleSignInFailed',
+        desc: '',
+        args: [],
+      );
+
+  String get googleSignInUnavailable => Intl.message(
+        'Google sign-in is unavailable on this device.',
+        name: 'googleSignInUnavailable',
+        desc: '',
+        args: [],
+      );
+
   /// `Home`
   String get home {
     return Intl.message('Home', name: 'home', desc: 'Home label', args: []);

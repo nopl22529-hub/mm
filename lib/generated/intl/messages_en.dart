@@ -52,6 +52,22 @@ class MessageLookup extends MessageLookupByLibrary {
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
+    "googleAccountConnected": MessageLookupByLibrary.simpleMessage(
+      "Google account connected",
+    ),
+    "googleSignIn": MessageLookupByLibrary.simpleMessage(
+      "Sign in with Google",
+    ),
+    "googleSignOut": MessageLookupByLibrary.simpleMessage("Sign out"),
+    "googleSignInSetupHint": MessageLookupByLibrary.simpleMessage(
+      "Google sign-in needs OAuth client IDs. See the setup guide in README.",
+    ),
+    "googleSignInFailed": MessageLookupByLibrary.simpleMessage(
+      "Could not sign in with Google. Check your setup and try again.",
+    ),
+    "googleSignInUnavailable": MessageLookupByLibrary.simpleMessage(
+      "Google sign-in is unavailable on this device.",
+    ),
     "about": MessageLookupByLibrary.simpleMessage("About"),
     "addProfile": MessageLookupByLibrary.simpleMessage("Add Profile"),
     "addToQueue": MessageLookupByLibrary.simpleMessage("Add to queue"),

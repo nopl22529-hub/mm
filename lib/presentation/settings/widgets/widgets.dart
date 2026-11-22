@@ -1,5 +1,6 @@
 export 'about_section.dart';
 export 'backup_section.dart';
+export 'google_account_card.dart';
 export 'common_section.dart';
 export 'distraction_section.dart';
 export 'playback_section.dart';

@@ -17,6 +17,7 @@ An ad-free YouTube client built with Flutter. Watch YouTube videos without ads, 
 ## Features
 
 - **No Login Needed**: Use the app without any login requirements.
+- **Google Account Sign-In**: Optionally connect a Google account from Settings.
 - **Ad-Free Experience**: Enjoy YouTube videos without interruptions.
 - **Multiple YouTube Services**: Switch between NewPipe Extractor and Invidious backends (Piped and Explode were retired — see [Retired providers](#retired-providers)).
 - **Download Videos**: Download videos and audio in multiple qualities with FFmpeg merging support.
@@ -70,6 +71,47 @@ Some features are only available when using the NewPipe Extractor service.
 </p>
 
 You can download the latest version of the app from the [releases page](https://github.com/mu-fazil-vk/FluxTube/releases).
+
+## Google Sign-In Setup
+
+Google sign-in is optional. To enable it in your own build:
+
+1. In Google Cloud Console, configure the OAuth consent screen and create an **Android** OAuth client for package `com.fazilvk.fluxtube`.
+2. Get your debug certificate's SHA-1 by running `cd android; .\gradlew signingReport` from PowerShell. Add that SHA-1 to the Android OAuth client. If you publish a release, add the release key's SHA-1 too.
+3. Create a **Web application** OAuth client ID. Pass that ID to the build as shown below.
+
+```sh
+flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID
+```
+
+For iOS, also create an iOS OAuth client for your bundle identifier and pass it with `--dart-define=GOOGLE_IOS_CLIENT_ID=YOUR_IOS_CLIENT_ID`. Google sign-in currently connects the Google identity and shows the account in Settings; FluxTube's video, subscription, and like features continue to use its existing providers.
+
+## Build an Android APK (Windows)
+
+Install Flutter `3.47.1`, Android Studio with the Android SDK, and Java 17. From the project folder, run:
+
+```powershell
+.\scripts\build-apk.ps1
+```
+
+This creates a debug APK at `build\app\outputs\flutter-apk\app-debug.apk`. To enable Google sign-in in that build, set your Web OAuth client ID first:
+
+```powershell
+$env:GOOGLE_SERVER_CLIENT_ID = "YOUR_WEB_CLIENT_ID"
+.\scripts\build-apk.ps1
+```
+
+If Google sign-in is not configured, the APK still builds, but the Google button stays disabled and shows setup instructions. For a release APK, pass `-Mode release`; Android release signing must also be configured in `android/key.properties` as described in `android/app/build.gradle`.
+
+## Build without installing Flutter or Android SDK
+
+You can build the debug APK on GitHub's hosted runner instead of installing the Android build tools locally:
+
+1. Fork this repository to your GitHub account and push your modified project to that fork.
+2. Open the fork's **Actions** tab and select **Build Debug APK**.
+3. Choose **Run workflow**. When it finishes, open the run and download the `fluxtube-debug-apk` artifact.
+
+To enable Google sign-in in the cloud build, add a repository variable named `GOOGLE_SERVER_CLIENT_ID` under **Settings → Secrets and variables → Actions → Variables**. The APK can still be built without it, but sign-in remains disabled. This workflow produces a debug APK; a publishable release APK requires a release signing key.
 
 ## FluxTube vs NewPipe App
 
