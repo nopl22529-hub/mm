@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
   static const _iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 
   GoogleSignInAccount? _account;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _authenticationSubscription;
   bool _isBusy = true;
   bool _isConfigured = false;
   bool _isAvailable = false;
@@ -50,15 +53,54 @@ class _GoogleAccountCardState extends State<GoogleAccountCard> {
         clientId:
             defaultTargetPlatform == TargetPlatform.iOS ? _iosClientId : null,
       );
-      final account = await signIn.attemptLightweightAuthentication();
-      if (!mounted) return;
-      setState(() {
-        _account = account;
-        _isBusy = false;
-      });
+      _authenticationSubscription = signIn.authenticationEvents.listen(
+        _handleAuthenticationEvent,
+        onError: _handleAuthenticationError,
+      );
+      if (mounted) setState(() => _isBusy = false);
+
+      // The package documents authenticationEvents as the source of truth for
+      // UI state. The lightweight-authentication Future can remain pending, so
+      // don't await it here or the settings card can spin forever.
+      unawaited(_attemptLightweightAuthentication(signIn));
     } catch (_) {
       if (mounted) setState(() => _isBusy = false);
     }
+  }
+
+  Future<void> _attemptLightweightAuthentication(GoogleSignIn signIn) async {
+    try {
+      await signIn.attemptLightweightAuthentication();
+    } catch (_) {
+      // The authentication event stream reports successful state changes.
+      // A missing prior session is normal and should leave the button usable.
+    }
+  }
+
+  void _handleAuthenticationEvent(GoogleSignInAuthenticationEvent event) {
+    if (!mounted) return;
+    switch (event) {
+      case GoogleSignInAuthenticationEventSignIn(:final user):
+        setState(() {
+          _account = user;
+          _isBusy = false;
+        });
+      case GoogleSignInAuthenticationEventSignOut():
+        setState(() {
+          _account = null;
+          _isBusy = false;
+        });
+    }
+  }
+
+  void _handleAuthenticationError(Object error, StackTrace stackTrace) {
+    if (mounted) setState(() => _isBusy = false);
+  }
+
+  @override
+  void dispose() {
+    _authenticationSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _signIn() async {
