@@ -107,9 +107,9 @@ If Google sign-in is not configured, the APK still builds, but the Google button
 
 You can build the debug APK on GitHub's hosted runner instead of installing the Android build tools locally:
 
-1. Fork this repository to your GitHub account and push your modified project to that fork.
-2. Open the fork's **Actions** tab and select **Build Debug APK**.
-3. Choose **Run workflow**. When it finishes, open the run and download the `fluxtube-debug-apk` artifact.
+1. Fork this repository to your GitHub account and push your modified project to that fork's `google-signin-apk` branch.
+2. The push starts **Build Debug APK** automatically. Open the fork's **Actions** tab and wait for the run to finish.
+3. Open the run and download the `fluxtube-debug-apk` artifact.
 
 To enable Google sign-in in the cloud build, add a repository variable named `GOOGLE_SERVER_CLIENT_ID` under **Settings → Secrets and variables → Actions → Variables**. The APK can still be built without it, but sign-in remains disabled. This workflow produces a debug APK; a publishable release APK requires a release signing key.
 

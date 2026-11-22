@@ -1,6 +1,9 @@
 name: Build Debug APK
 
 on:
+  push:
+    branches:
+      - google-signin-apk
   workflow_dispatch:
 
 permissions:
