@@ -105,3 +105,9 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/icon.png"
   min_sdk_android: 21
+
+# A reported google_sign_in_android 7.2.11 regression leaves the Android
+# credential picker hidden on some devices; the reporter confirmed 7.2.7
+# works. Pin to that version while validating Google sign-in on this app.
+dependency_overrides:
+  google_sign_in_android: 7.2.7
