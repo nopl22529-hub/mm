@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fluxtube/application/application.dart';
 import 'package:fluxtube/core/constants.dart';
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/youtube_auth_service.dart';
+import 'package:fluxtube/domain/subscribes/models/subscribe.dart';
 import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
 import 'package:fluxtube/presentation/settings/widgets/settings_components.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -68,6 +71,12 @@ class YoutubeAccountSection extends StatelessWidget {
                       ),
               ),
               SettingsActionTile(
+                icon: Icons.playlist_add_check,
+                title: 'Import my YouTube subscriptions',
+                subtitle: 'Add the channels you subscribe to on YouTube to this profile',
+                onTap: () => _importSubscriptions(context),
+              ),
+              SettingsActionTile(
                 icon: Icons.logout,
                 title: 'Sign out of YouTube',
                 onTap: () => _confirmSignOut(context),
@@ -98,6 +107,40 @@ class YoutubeAccountSection extends StatelessWidget {
     );
     if (signedIn == true && context.mounted) {
       _showMessage(context, 'Signed in to YouTube.');
+    }
+  }
+
+  Future<void> _importSubscriptions(BuildContext context) async {
+    _showMessage(context, 'Loading your YouTube subscriptions…');
+    try {
+      final subs = await InnertubeAuthImpl().fetchSubscriptions();
+      if (!context.mounted) return;
+      final bloc = BlocProvider.of<SubscribeBloc>(context);
+      final existing = bloc.state.subscribedChannels.map((c) => c.id).toSet();
+      var imported = 0;
+      for (final sub in subs) {
+        if (existing.contains(sub.channelId)) continue;
+        bloc.add(
+          SubscribeEvent.addSubscribe(
+            channelInfo: Subscribe(
+              id: sub.channelId,
+              channelName: sub.title,
+              avatarUrl: sub.avatarUrl,
+            ),
+          ),
+        );
+        imported++;
+      }
+      _showMessage(
+        context,
+        imported == 0
+            ? 'All ${subs.length} YouTube subscriptions are already here.'
+            : 'Imported $imported of ${subs.length} YouTube subscriptions.',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        _showMessage(context, 'Could not import subscriptions. $e');
+      }
     }
   }
 

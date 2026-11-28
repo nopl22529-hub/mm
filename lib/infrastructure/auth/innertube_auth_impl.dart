@@ -9,6 +9,7 @@ import 'package:fluxtube/core/api_client.dart';
 import 'package:fluxtube/domain/auth/models/create_comment_params.dart';
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/models/video_engagement.dart';
+import 'package:fluxtube/domain/auth/models/youtube_subscription.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
 import 'package:fluxtube/domain/auth/youtube_auth_service.dart';
 
@@ -530,6 +531,61 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
         clientNameId: _tvClientNameId,
       );
     }
+  }
+
+  // --- Subscriptions import ---
+
+  @override
+  Future<List<YoutubeSubscription>> fetchSubscriptions() async {
+    YoutubeAuthException? lastError;
+
+    Future<List<YoutubeSubscription>?> attempt(
+      String endpoint,
+      Map<String, dynamic> body,
+      List<YoutubeSubscription> Function(Map<String, dynamic>) parse, {
+      bool tv = false,
+    }) async {
+      try {
+        final data = await innertubePost(
+          endpoint,
+          body,
+          clientName: tv ? _tvClientName : 'WEB',
+          clientVersion: tv ? _tvClientVersion : null,
+          clientNameId: tv ? _tvClientNameId : '1',
+        );
+        final subs = parse(data);
+        return subs.isEmpty ? null : subs;
+      } on YoutubeAuthException catch (e) {
+        lastError = e;
+        debugPrint(
+          '[InnertubeAuth] fetchSubscriptions $endpoint '
+          '(${tv ? 'TV' : 'WEB'}) failed: $e',
+        );
+        return null;
+      }
+    }
+
+    final attempts = <Future<List<YoutubeSubscription>?> Function()>[
+      () => attempt('browse', {
+        'browseId': 'FEchannels',
+      }, YoutubeSubscription.fromChannelsFeedResponse),
+      () => attempt(
+        'browse',
+        {'browseId': 'FEchannels'},
+        YoutubeSubscription.fromChannelsFeedResponse,
+        tv: true,
+      ),
+      () => attempt('guide', {}, YoutubeSubscription.fromGuideResponse),
+      () =>
+          attempt('guide', {}, YoutubeSubscription.fromGuideResponse, tv: true),
+    ];
+
+    for (final run in attempts) {
+      final subs = await run();
+      if (subs != null) return subs;
+    }
+    throw lastError ??
+        YoutubeAuthException('Could not load your YouTube subscriptions.');
   }
 
   Future<void> _clearSession() async {

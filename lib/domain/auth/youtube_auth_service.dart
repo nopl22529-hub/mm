@@ -1,5 +1,6 @@
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/models/video_engagement.dart';
+import 'package:fluxtube/domain/auth/models/youtube_subscription.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
 
 /// Thrown when a YouTube sign-in step fails for a reason the UI can
@@ -99,4 +100,9 @@ abstract class YoutubeAuthService {
   /// account (`comment/create_comment`).
   /// Throws [YoutubeAuthException] on failure.
   Future<void> postComment(String videoId, String text);
+
+  /// The channels the signed-in account is subscribed to on
+  /// YouTube (FEchannels browse, guide as fallback).
+  /// Throws [YoutubeAuthException] on failure.
+  Future<List<YoutubeSubscription>> fetchSubscriptions();
 }
