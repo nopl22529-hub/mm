@@ -34,6 +34,8 @@ class ScreenSettings extends StatelessWidget {
               AppSpacing.height24,
               const GoogleAccountCard(),
               AppSpacing.height24,
+              const YoutubeAccountSection(),
+              AppSpacing.height24,
               const CommonSettingsSection(),
               AppSpacing.height24,
               const ProfilesSettingsSection(),

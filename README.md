@@ -86,6 +86,14 @@ flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=YOUR_WEB_CLIENT_ID
 
 For iOS, also create an iOS OAuth client for your bundle identifier and pass it with `--dart-define=GOOGLE_IOS_CLIENT_ID=YOUR_IOS_CLIENT_ID`. Google sign-in currently connects the Google identity and shows the account in Settings; FluxTube's video, subscription, and like features continue to use its existing providers.
 
+## YouTube Account Sign-In (Innertube, Phase 1)
+
+Separate from the Google identity card above, Settings → **YouTube Account** signs FluxTube in as your real YouTube channel using the OAuth TV device flow: the app shows a code, you enter it at youtube.com/activate, and the app stores the refresh token in platform secure storage (Android Keystore / iOS Keychain) so you stay signed in across restarts. No Google Cloud project is needed for this flow.
+
+Phase 1 only signs in and shows your channel in Settings. Like, subscribe, comment, and watch-history sync build on this session in later phases; until then, playback and subscriptions still use the existing anonymous providers and local profiles.
+
+> Unofficial API notice: this uses YouTube's internal Innertube API, which is not a public Google API. It can break when YouTube changes its clients, and using it may violate YouTube's Terms of Service. Use it with an account you can afford to lose access to, and do not distribute builds with it on app stores.
+
 ## Build an Android APK (Windows)
 
 Install Flutter `3.47.1`, Android Studio with the Android SDK, and Java 17. From the project folder, run:

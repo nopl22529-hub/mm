@@ -13,6 +13,7 @@ import 'package:fluxtube/core/app_info.dart';
 import 'package:fluxtube/core/app_theme.dart';
 import 'package:fluxtube/core/locals.dart';
 import 'package:fluxtube/core/player/global_player_controller.dart';
+import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
 import 'package:fluxtube/infrastructure/download/download_notification_service.dart';
 import 'package:fluxtube/infrastructure/settings/setting_impl.dart';
 import 'package:fluxtube/presentation/routes/app_routes.dart';
@@ -68,6 +69,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Look for new uploads from subscribed channels. Self-throttling and a
       // no-op unless the user turned notifications on.
       SubscriptionNotifier().checkForNewVideos();
+      // Restore a previous YouTube sign-in (Innertube) from secure
+      // storage so the account stays signed in across app restarts.
+      InnertubeAuthImpl().restoreSession();
     });
   }
 

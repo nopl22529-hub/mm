@@ -8,3 +8,4 @@ export 'profiles_section.dart';
 export 'sponsorblock_section.dart';
 export 'sub_setting_app_bar.dart';
 export 'video_settings_section.dart';
+export 'youtube_account_section.dart';
