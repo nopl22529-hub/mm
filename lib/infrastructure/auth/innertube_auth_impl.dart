@@ -51,7 +51,8 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
 
   // Innertube WEB client context. YouTube rotates client versions;
   // bump this if authenticated Innertube calls start failing.
-  static const _webClientVersion = '2.20251201.01.00';
+  static const _webClientVersion = '2.20260623.01.00';
+  static const _tvClientVersion = '7.20260311.12.00';
 
   static const _kRefreshToken = 'yt_refresh_token';
   static const _kAccessToken = 'yt_access_token';
@@ -113,6 +114,10 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
           key: _kAccountJson,
           value: jsonEncode(fresh.toJson()),
         );
+        notifyListeners();
+      } else if (_account == null) {
+        // Valid tokens but no channel details: still signed in.
+        _account = _fallbackAccount;
         notifyListeners();
       }
     } catch (e) {
@@ -178,12 +183,9 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
         if (token == null) {
           throw YoutubeAuthException('YouTube sign-in returned no token.');
         }
-        final account = await _fetchAccount(token);
-        if (account == null) {
-          throw YoutubeAuthException(
-            'Signed in, but no YouTube channel was found for this account.',
-          );
-        }
+        // Tokens are already stored at this point, so a failed
+        // channel lookup must not fail the sign-in.
+        final account = await _fetchAccount(token) ?? _fallbackAccount;
         _account = account;
         await _storage.write(
           key: _kAccountJson,
@@ -277,16 +279,20 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
   @override
   Future<Map<String, dynamic>> innertubePost(
     String endpoint,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    String clientName = 'WEB',
+    String? clientVersion,
+    String clientNameId = '1',
+  }) async {
+    final version = clientVersion ?? _webClientVersion;
     final token = await getValidAccessToken();
     final response = await _dio.post<dynamic>(
       '$_innertubeBase/$endpoint?prettyPrint=false',
       data: {
         'context': {
           'client': {
-            'clientName': 'WEB',
-            'clientVersion': _webClientVersion,
+            'clientName': clientName,
+            'clientVersion': version,
             'hl': 'en',
             'gl': 'US',
           },
@@ -297,8 +303,8 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
         contentType: Headers.jsonContentType,
         headers: {
           if (token != null) 'Authorization': 'Bearer $token',
-          'X-YouTube-Client-Name': '1',
-          'X-YouTube-Client-Version': _webClientVersion,
+          'X-YouTube-Client-Name': clientNameId,
+          'X-YouTube-Client-Version': version,
         },
       ),
     );
@@ -332,20 +338,59 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
     }
   }
 
+  /// Best-effort channel lookup. Sign-in success is the stored
+  /// tokens, not this lookup: the Data API call can fail for TV
+  /// tokens (its quota belongs to the OAuth client's project) and
+  /// accounts without a created channel return no items, so both
+  /// failures fall back to Innertube `account/accounts_list` with
+  /// the TV client, and callers fall back further to a placeholder
+  /// account instead of failing the whole sign-in.
   Future<YoutubeAccount?> _fetchAccount(String accessToken) async {
-    final response = await _dio.get<dynamic>(
-      _channelsUrl,
-      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-    );
-    final data = response.data;
-    if (response.statusCode != 200 || data is! Map<String, dynamic>) {
-      log('[InnertubeAuth] channels.list failed: HTTP ${response.statusCode}');
-      return null;
+    try {
+      final response = await _dio.get<dynamic>(
+        _channelsUrl,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      final data = response.data;
+      if (response.statusCode == 200 && data is Map<String, dynamic>) {
+        final items = data['items'] as List<dynamic>? ?? const [];
+        if (items.isNotEmpty) {
+          return YoutubeAccount.fromChannelItem(
+            items.first as Map<String, dynamic>,
+          );
+        }
+        debugPrint('[InnertubeAuth] channels.list returned no channel');
+      } else {
+        debugPrint(
+          '[InnertubeAuth] channels.list failed: HTTP '
+          '${response.statusCode} ${data is Map ? data['error'] : ''}',
+        );
+      }
+    } catch (e) {
+      debugPrint('[InnertubeAuth] channels.list error: $e');
     }
-    final items = data['items'] as List<dynamic>? ?? const [];
-    if (items.isEmpty) return null;
-    return YoutubeAccount.fromChannelItem(items.first as Map<String, dynamic>);
+
+    try {
+      final data = await innertubePost(
+        'account/accounts_list',
+        const {},
+        clientName: 'TVHTML5',
+        clientVersion: _tvClientVersion,
+        clientNameId: '7',
+      );
+      final account = YoutubeAccount.fromAccountsListResponse(data);
+      if (account != null) return account;
+      debugPrint('[InnertubeAuth] accounts_list had no account item');
+    } catch (e) {
+      debugPrint('[InnertubeAuth] accounts_list error: $e');
+    }
+    return null;
   }
+
+  static const _fallbackAccount = YoutubeAccount(
+    channelId: '',
+    title: 'YouTube account',
+  );
 
   Future<void> _clearSession() async {
     _account = null;

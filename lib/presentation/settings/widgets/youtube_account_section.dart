@@ -55,7 +55,11 @@ class YoutubeAccountSection extends StatelessWidget {
                 title: account.title.isEmpty
                     ? 'YouTube account'
                     : account.title,
-                subtitle: account.handle ?? account.channelId,
+                subtitle:
+                    account.handle ??
+                    (account.channelId.isEmpty
+                        ? 'Signed in'
+                        : account.channelId),
                 trailing: account.avatarUrl == null
                     ? null
                     : CircleAvatar(

@@ -47,6 +47,46 @@ void main() {
       expect(account.avatarUrl, 'https://example.com/avatar.jpg');
     });
 
+    test('parses an Innertube accounts_list response', () {
+      final account = YoutubeAccount.fromAccountsListResponse({
+        'contents': {
+          'accountSectionListRenderer': {
+            'contents': [
+              {
+                'accountItemSectionRenderer': {
+                  'contents': [
+                    {
+                      'accountItemRenderer': {
+                        'accountName': {'simpleText': 'Mena Channel'},
+                        'channelHandle': {
+                          'runs': [
+                            {'text': '@mena'},
+                          ],
+                        },
+                        'accountPhoto': {
+                          'thumbnails': [
+                            {'url': 'https://example.com/small.jpg'},
+                            {'url': 'https://example.com/large.jpg'},
+                          ],
+                        },
+                        'serviceEndpoint': {
+                          'browseEndpoint': {'browseId': 'UC123'},
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      });
+      expect(account?.channelId, 'UC123');
+      expect(account?.title, 'Mena Channel');
+      expect(account?.handle, '@mena');
+      expect(account?.avatarUrl, 'https://example.com/large.jpg');
+    });
+
     test('round-trips through JSON for secure-storage caching', () {
       const account = YoutubeAccount(
         channelId: 'UC123',

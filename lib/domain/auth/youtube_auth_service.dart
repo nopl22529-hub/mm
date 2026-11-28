@@ -60,6 +60,9 @@ abstract class YoutubeAuthService {
   /// on HTTP / network failure.
   Future<Map<String, dynamic>> innertubePost(
     String endpoint,
-    Map<String, dynamic> body,
-  );
+    Map<String, dynamic> body, {
+    String clientName = 'WEB',
+    String? clientVersion,
+    String clientNameId = '1',
+  });
 }

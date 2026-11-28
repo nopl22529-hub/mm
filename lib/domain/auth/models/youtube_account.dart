@@ -34,6 +34,90 @@ class YoutubeAccount {
     );
   }
 
+  /// Parses an Innertube `account/accounts_list` response (TV client,
+  /// the same call YouTube.js `account.getInfo()` makes for OAuth
+  /// sessions). Returns null when no account item is present.
+  ///
+  /// The response is deeply nested renderers, so this searches the
+  /// tree for the first `accountItemRenderer` instead of depending on
+  /// one exact path that YouTube can rearrange.
+  static YoutubeAccount? fromAccountsListResponse(Map<String, dynamic> json) {
+    final renderer = _findRenderer(json, 'accountItemRenderer');
+    if (renderer == null) return null;
+
+    final title = _textOf(renderer['accountName']) ?? '';
+    final handle = _textOf(renderer['channelHandle']);
+    final photo = renderer['accountPhoto'] as Map<String, dynamic>?;
+    final thumbs = photo?['thumbnails'] as List<dynamic>? ?? const [];
+    String? avatarUrl;
+    if (thumbs.isNotEmpty) {
+      final last = thumbs.last;
+      if (last is Map<String, dynamic>) avatarUrl = last['url'] as String?;
+    }
+
+    return YoutubeAccount(
+      channelId: _findChannelId(renderer) ?? '',
+      title: title,
+      handle: (handle == null || handle.isEmpty) ? null : handle,
+      avatarUrl: avatarUrl,
+    );
+  }
+
+  static Map<String, dynamic>? _findRenderer(Object? node, String key) {
+    if (node is Map<String, dynamic>) {
+      final value = node[key];
+      if (value is Map<String, dynamic>) return value;
+      for (final child in node.values) {
+        final found = _findRenderer(child, key);
+        if (found != null) return found;
+      }
+    } else if (node is List) {
+      for (final child in node) {
+        final found = _findRenderer(child, key);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  static String? _findChannelId(Object? node) {
+    if (node is Map<String, dynamic>) {
+      final browseId = node['browseId'];
+      if (browseId is String && browseId.startsWith('UC')) return browseId;
+      for (final child in node.values) {
+        final found = _findChannelId(child);
+        if (found != null) return found;
+      }
+    } else if (node is List) {
+      for (final child in node) {
+        final found = _findChannelId(child);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  /// Innertube text objects are either `{simpleText: ...}` or
+  /// `{runs: [{text: ...}, ...]}`.
+  static String? _textOf(Object? node) {
+    if (node is Map<String, dynamic>) {
+      final simple = node['simpleText'];
+      if (simple is String) return simple;
+      final runs = node['runs'];
+      if (runs is List) {
+        final buffer = StringBuffer();
+        for (final run in runs) {
+          if (run is Map<String, dynamic> && run['text'] is String) {
+            buffer.write(run['text']);
+          }
+        }
+        final text = buffer.toString();
+        return text.isEmpty ? null : text;
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
     'channelId': channelId,
     'title': title,
