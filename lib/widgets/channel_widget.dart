@@ -5,6 +5,7 @@ import 'package:fluxtube/core/colors.dart';
 import 'package:fluxtube/core/constants.dart';
 import 'package:fluxtube/domain/subscribes/models/subscribe.dart';
 import 'package:fluxtube/generated/l10n.dart';
+import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
 import 'package:fluxtube/widgets/common_video_description_widget.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,12 +20,12 @@ class ChannelWidget extends StatelessWidget {
     required String channelId,
     required this.locals,
     this.isTapEnabled = true,
-  })  : _channelName = channelName,
-        _isVerified = isVerified,
-        _subscriberCount = subscriberCount,
-        _thumbnail = thumbnail,
-        _isSubscribed = isSubscribed,
-        _channelId = channelId;
+  }) : _channelName = channelName,
+       _isVerified = isVerified,
+       _subscriberCount = subscriberCount,
+       _thumbnail = thumbnail,
+       _isSubscribed = isSubscribed,
+       _channelId = channelId;
 
   final String? _channelName;
   final bool? _isVerified;
@@ -40,11 +41,11 @@ class ChannelWidget extends StatelessWidget {
     return GestureDetector(
       onTap: () => !isTapEnabled
           ? null
-          : context.goNamed('channel', pathParameters: {
-              'channelId': _channelId,
-            }, queryParameters: {
-              'avatarUrl': _thumbnail,
-            }),
+          : context.goNamed(
+              'channel',
+              pathParameters: {'channelId': _channelId},
+              queryParameters: {'avatarUrl': _thumbnail},
+            ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         child: SubscribeRowWidget(
@@ -55,22 +56,33 @@ class ChannelWidget extends StatelessWidget {
           uploaderUrl: _thumbnail,
           radius: 35,
           spacing: kWidthBox15,
-          subTextStyle:
-              Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 18),
+          subTextStyle: Theme.of(context).textTheme.bodyMedium!
+              .copyWith(fontSize: 18),
           subCountTextStyle: TextStyle(
-              color: kGreyColor, fontSize: 13, overflow: TextOverflow.ellipsis),
+            color: kGreyColor,
+            fontSize: 13,
+            overflow: TextOverflow.ellipsis,
+          ),
           onSubscribeTap: () {
+            // Local profile stays the UI source of truth; when signed
+            // in to YouTube, mirror the change on the real account.
+            final auth = InnertubeAuthImpl();
             if (_isSubscribed) {
               BlocProvider.of<SubscribeBloc>(context)
                   .add(SubscribeEvent.deleteSubscribeInfo(id: _channelId));
+              auth.syncSubscription(_channelId, false);
             } else {
               BlocProvider.of<SubscribeBloc>(context).add(
-                  SubscribeEvent.addSubscribe(
-                      channelInfo: Subscribe(
-                          id: _channelId,
-                          channelName: _channelName ?? locals.noUploaderName,
-                          isVerified: _isVerified ?? false,
-                          avatarUrl: _thumbnail)));
+                SubscribeEvent.addSubscribe(
+                  channelInfo: Subscribe(
+                    id: _channelId,
+                    channelName: _channelName ?? locals.noUploaderName,
+                    isVerified: _isVerified ?? false,
+                    avatarUrl: _thumbnail,
+                  ),
+                ),
+              );
+              auth.syncSubscription(_channelId, true);
             }
           },
         ),

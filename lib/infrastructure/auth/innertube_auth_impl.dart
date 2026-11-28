@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fluxtube/core/api_client.dart';
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
+import 'package:fluxtube/domain/auth/models/video_engagement.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
 import 'package:fluxtube/domain/auth/youtube_auth_service.dart';
 
@@ -392,10 +393,87 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
     title: 'YouTube account',
   );
 
+  // --- Phase 2: like / subscribe on the real account ---
+
+  final Map<String, (VideoEngagement, DateTime)> _engagementCache = {};
+
+  @override
+  Future<VideoEngagement?> fetchEngagement(String videoId) async {
+    if (!isSignedIn) return null;
+    final cached = _engagementCache[videoId];
+    if (cached != null &&
+        DateTime.now().difference(cached.$2) < const Duration(minutes: 5)) {
+      return cached.$1;
+    }
+    try {
+      final data = await innertubePost('next', {
+        'videoId': videoId,
+        'contentCheckOk': true,
+        'racyCheckOk': true,
+      });
+      final engagement = VideoEngagement.fromNextResponse(data);
+      _engagementCache[videoId] = (engagement, DateTime.now());
+      return engagement;
+    } catch (e) {
+      debugPrint('[InnertubeAuth] fetchEngagement failed: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<void> rateVideo(
+    String videoId,
+    VideoRating rating, {
+    VideoEngagement? engagement,
+  }) async {
+    final (endpoint, params) = switch (rating) {
+      VideoRating.like => ('like/like', engagement?.likeParams),
+      VideoRating.dislike => ('like/dislike', engagement?.dislikeParams),
+      VideoRating.none => ('like/removelike', engagement?.removeLikeParams),
+    };
+    await innertubePost(endpoint, {
+      'target': {'videoId': videoId},
+      if (params != null) 'params': params,
+    });
+    final cached = _engagementCache[videoId];
+    if (cached != null) {
+      _engagementCache[videoId] = (
+        cached.$1.copyWith(rating: rating),
+        cached.$2,
+      );
+    }
+  }
+
+  @override
+  Future<void> setSubscribed(
+    String channelId,
+    bool subscribe, {
+    String? params,
+  }) async {
+    await innertubePost(
+      subscribe ? 'subscription/subscribe' : 'subscription/unsubscribe',
+      {
+        'channelIds': [channelId],
+        if (params != null) 'params': params,
+      },
+    );
+  }
+
+  @override
+  Future<void> syncSubscription(String channelId, bool subscribe) async {
+    if (!isSignedIn) return;
+    try {
+      await setSubscribed(channelId, subscribe);
+    } catch (e) {
+      debugPrint('[InnertubeAuth] syncSubscription failed: $e');
+    }
+  }
+
   Future<void> _clearSession() async {
     _account = null;
     _accessToken = null;
     _accessTokenExpiry = null;
+    _engagementCache.clear();
     await _storage.delete(key: _kRefreshToken);
     await _storage.delete(key: _kAccessToken);
     await _storage.delete(key: _kAccessTokenExpiry);

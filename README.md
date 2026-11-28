@@ -92,6 +92,8 @@ Separate from the Google identity card above, Settings → **YouTube Account** s
 
 Phase 1 only signs in and shows your channel in Settings. Like, subscribe, comment, and watch-history sync build on this session in later phases; until then, playback and subscriptions still use the existing anonymous providers and local profiles.
 
+**Phase 2 — Like & Subscribe:** when signed in, the NewPipe watch screen's like/dislike buttons show your current rating (from Innertube `next`) and send `like/like`, `like/dislike`, or `like/removelike` to your account; tapping again clears the rating. Subscribe/unsubscribe is mirrored to your real account (`subscription/subscribe`, `subscription/unsubscribe`) in addition to the local profile subscriptions, from the watch screen, channel screen, and search results. On the watch screen, the subscribed state shown comes from YouTube when available. Comment writing and watch-history sync are later phases.
+
 > Unofficial API notice: this uses YouTube's internal Innertube API, which is not a public Google API. It can break when YouTube changes its clients, and using it may violate YouTube's Terms of Service. Use it with an account you can afford to lose access to, and do not distribute builds with it on app stores.
 
 ## Build an Android APK (Windows)

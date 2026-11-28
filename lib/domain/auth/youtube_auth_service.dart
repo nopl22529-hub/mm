@@ -1,4 +1,5 @@
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
+import 'package:fluxtube/domain/auth/models/video_engagement.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
 
 /// Thrown when a YouTube sign-in step fails for a reason the UI can
@@ -65,4 +66,32 @@ abstract class YoutubeAuthService {
     String? clientVersion,
     String clientNameId = '1',
   });
+
+  /// Signed-in rating/subscription state for [videoId], from the
+  /// Innertube `next` response. Null when signed out or on failure.
+  /// Results are cached briefly so the like and subscribe sections
+  /// of one watch screen share a single request.
+  Future<VideoEngagement?> fetchEngagement(String videoId);
+
+  /// Likes, dislikes, or clears the rating of [videoId] on the real
+  /// account (`like/like`, `like/dislike`, `like/removelike`).
+  /// Throws [YoutubeAuthException] on failure.
+  Future<void> rateVideo(
+    String videoId,
+    VideoRating rating, {
+    VideoEngagement? engagement,
+  });
+
+  /// Subscribes/unsubscribes the real account to [channelId]
+  /// (`subscription/subscribe`, `subscription/unsubscribe`).
+  /// Throws [YoutubeAuthException] on failure.
+  Future<void> setSubscribed(
+    String channelId,
+    bool subscribe, {
+    String? params,
+  });
+
+  /// Fire-and-forget [setSubscribed] for UI that already updated
+  /// local state: no-op when signed out, failures are only logged.
+  Future<void> syncSubscription(String channelId, bool subscribe);
 }
