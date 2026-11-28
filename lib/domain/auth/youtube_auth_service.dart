@@ -1,4 +1,6 @@
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
+import 'package:fluxtube/domain/auth/models/playback_tracking.dart';
+import 'package:fluxtube/domain/auth/models/youtube_history_item.dart';
 import 'package:fluxtube/domain/auth/models/video_engagement.dart';
 import 'package:fluxtube/domain/auth/models/youtube_subscription.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
@@ -105,4 +107,15 @@ abstract class YoutubeAuthService {
   /// YouTube (FEchannels browse, guide as fallback).
   /// Throws [YoutubeAuthException] on failure.
   Future<List<YoutubeSubscription>> fetchSubscriptions();
+
+  /// The signed-in account's YouTube watch history (FEhistory).
+  /// Throws [YoutubeAuthException] on failure.
+  Future<List<YoutubeHistoryItem>> fetchHistory();
+
+  /// Playback-stats URLs for [videoId] from the player response,
+  /// or null when unavailable.
+  Future<PlaybackTracking?> fetchPlaybackTracking(String videoId);
+
+  /// GETs a playback-stats URL (fire-and-forget; failures logged).
+  Future<void> pingStatsUrl(String url);
 }

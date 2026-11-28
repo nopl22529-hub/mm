@@ -94,7 +94,11 @@ Phase 1 only signs in and shows your channel in Settings. Like, subscribe, comme
 
 **Phase 2 — Like & Subscribe:** when signed in, the NewPipe watch screen's like/dislike buttons show your current rating (from Innertube `next`) and send `like/like`, `like/dislike`, or `like/removelike` to your account; tapping again clears the rating. Subscribe/unsubscribe is mirrored to your real account (`subscription/subscribe`, `subscription/unsubscribe`) in addition to the local profile subscriptions, from the watch screen, channel screen, and search results. On the watch screen, the subscribed state shown comes from YouTube when available.
 
-**Phase 3 — Comments:** when signed in, the NewPipe watch screen's comments section has a comment box; posting sends `comment/create_comment` as your account (the `createCommentParams` protobuf is encoded locally, the same way YouTube.js builds it) and reloads the comment list. Replies to existing comments are not wired yet. Watch-history sync is a later phase.
+**Phase 3 — Comments:** when signed in, the NewPipe watch screen's comments section has a comment box; posting sends `comment/create_comment` as your account (the `createCommentParams` protobuf is encoded locally, the same way YouTube.js builds it) and reloads the comment list. Replies to existing comments are not wired yet.
+
+**Subscriptions import:** Settings → YouTube Account → "Import my YouTube subscriptions" fetches the channels you subscribe to on YouTube (FEchannels browse, guide as fallback) and adds the missing ones to the current local profile.
+
+**Phase 4 — Watch history:** Settings → YouTube Account → "My YouTube history" reads your account's history (`FEhistory`). Playback in FluxTube is reported to that history the way YouTube's own clients do it: the player response's `videostatsPlaybackUrl` is pinged when playback starts and `videostatsWatchtimeUrl` every 40 seconds while playing, on pause, and at the end (with a random CPN per video). Streams still come from NewPipe.
 
 > Unofficial API notice: this uses YouTube's internal Innertube API, which is not a public Google API. It can break when YouTube changes its clients, and using it may violate YouTube's Terms of Service. Use it with an account you can afford to lose access to, and do not distribute builds with it on app stores.
 

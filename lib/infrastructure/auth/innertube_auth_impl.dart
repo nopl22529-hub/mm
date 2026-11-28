@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fluxtube/core/api_client.dart';
 import 'package:fluxtube/domain/auth/models/create_comment_params.dart';
+import 'package:fluxtube/domain/auth/models/playback_tracking.dart';
+import 'package:fluxtube/domain/auth/models/youtube_history_item.dart';
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/models/video_engagement.dart';
 import 'package:fluxtube/domain/auth/models/youtube_subscription.dart';
@@ -586,6 +588,83 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
     }
     throw lastError ??
         YoutubeAuthException('Could not load your YouTube subscriptions.');
+  }
+
+  // --- Phase 4: watch history ---
+
+  @override
+  Future<List<YoutubeHistoryItem>> fetchHistory() async {
+    YoutubeAuthException? lastError;
+    for (final tv in const [false, true]) {
+      try {
+        final data = await innertubePost(
+          'browse',
+          {'browseId': 'FEhistory'},
+          clientName: tv ? _tvClientName : 'WEB',
+          clientVersion: tv ? _tvClientVersion : null,
+          clientNameId: tv ? _tvClientNameId : '1',
+        );
+        final items = YoutubeHistoryItem.fromHistoryResponse(data);
+        if (items.isNotEmpty) return items;
+      } on YoutubeAuthException catch (e) {
+        lastError = e;
+        debugPrint(
+          '[InnertubeAuth] fetchHistory (${tv ? 'TV' : 'WEB'}) failed: $e',
+        );
+      }
+    }
+    if (lastError != null) throw lastError;
+    return const [];
+  }
+
+  @override
+  Future<PlaybackTracking?> fetchPlaybackTracking(String videoId) async {
+    for (final tv in const [false, true]) {
+      try {
+        final data = await innertubePost(
+          'player',
+          {
+            'videoId': videoId,
+            'contentCheckOk': true,
+            'racyCheckOk': true,
+            'playbackContext': {
+              'contentPlaybackContext': {'html5Preference': 'HTML5_PREF_WANTS'},
+            },
+          },
+          clientName: tv ? _tvClientName : 'WEB',
+          clientVersion: tv ? _tvClientVersion : null,
+          clientNameId: tv ? _tvClientNameId : '1',
+        );
+        final tracking = PlaybackTracking.fromPlayerResponse(data);
+        if (tracking != null) return tracking;
+      } catch (e) {
+        debugPrint(
+          '[InnertubeAuth] fetchPlaybackTracking '
+          '(${tv ? 'TV' : 'WEB'}) failed: $e',
+        );
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<void> pingStatsUrl(String url) async {
+    try {
+      final token = await getValidAccessToken();
+      await _dio.get<dynamic>(
+        url,
+        options: Options(
+          headers: {
+            if (token != null) 'Authorization': 'Bearer $token',
+            if (token != null)
+              'X-Goog-Request-Time':
+                  (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('[InnertubeAuth] stats ping failed: $e');
+    }
   }
 
   Future<void> _clearSession() async {

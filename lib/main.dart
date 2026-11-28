@@ -14,6 +14,7 @@ import 'package:fluxtube/core/app_theme.dart';
 import 'package:fluxtube/core/locals.dart';
 import 'package:fluxtube/core/player/global_player_controller.dart';
 import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
+import 'package:fluxtube/infrastructure/auth/watch_history_reporter.dart';
 import 'package:fluxtube/infrastructure/download/download_notification_service.dart';
 import 'package:fluxtube/infrastructure/settings/setting_impl.dart';
 import 'package:fluxtube/presentation/routes/app_routes.dart';
@@ -72,6 +73,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Restore a previous YouTube sign-in (Innertube) from secure
       // storage so the account stays signed in across app restarts.
       InnertubeAuthImpl().restoreSession();
+      WatchHistoryReporter().start();
     });
   }
 
@@ -120,8 +122,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               builder: (lightDynamic, darkDynamic) {
                 return MaterialApp.router(
                   title: AppInfo.myApp.name,
-                  theme: AppTheme.dynamicTheme(lightDynamic ?? ColorScheme.fromSeed(seedColor: Colors.blue)),
-                  darkTheme: AppTheme.dynamicTheme(darkDynamic ?? const ColorScheme.dark()),
+                  theme: AppTheme.dynamicTheme(
+                    lightDynamic ??
+                        ColorScheme.fromSeed(seedColor: Colors.blue),
+                  ),
+                  darkTheme: AppTheme.dynamicTheme(
+                    darkDynamic ?? const ColorScheme.dark(),
+                  ),
                   themeMode: ThemeMode.system,
                   debugShowCheckedModeBanner: false,
                   routerConfig: router,
@@ -160,9 +167,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             supportedLocales: supportedLocales,
             locale: Locale(state.defaultLanguage),
             builder: (context, child) {
-              return GlobalPipOverlay(
-                child: child ?? const SizedBox.shrink(),
-              );
+              return GlobalPipOverlay(child: child ?? const SizedBox.shrink());
             },
           );
         },

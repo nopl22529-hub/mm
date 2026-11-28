@@ -9,6 +9,7 @@ import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/youtube_auth_service.dart';
 import 'package:fluxtube/domain/subscribes/models/subscribe.dart';
 import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
+import 'package:fluxtube/presentation/settings/screen_youtube_history.dart';
 import 'package:fluxtube/presentation/settings/widgets/settings_components.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -69,6 +70,16 @@ class YoutubeAccountSection extends StatelessWidget {
                         radius: 18,
                         backgroundImage: NetworkImage(account.avatarUrl!),
                       ),
+              ),
+              SettingsActionTile(
+                icon: Icons.history,
+                title: 'My YouTube history',
+                subtitle: 'Watch history from your YouTube account',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const YoutubeHistoryScreen(),
+                  ),
+                ),
               ),
               SettingsActionTile(
                 icon: Icons.playlist_add_check,
