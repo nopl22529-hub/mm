@@ -417,7 +417,6 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
   // accounts_list lookup in Phase 1.
 
   static const _tvClientName = 'TVHTML5';
-  static const _tvClientVersion = '7.20260311.12.00';
   static const _tvClientNameId = '7';
 
   final Map<String, (VideoEngagement, DateTime)> _engagementCache = {};
