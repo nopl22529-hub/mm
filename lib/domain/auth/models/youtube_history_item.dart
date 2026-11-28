@@ -38,7 +38,7 @@ class YoutubeHistoryItem {
 
     void visit(Object? node) {
       if (node is Map<String, dynamic>) {
-        final video = node['videoRenderer'];
+        final video = node['videoRenderer'] ?? node['compactVideoRenderer'];
         if (video is Map<String, dynamic>) {
           final videoId = video['videoId'];
           if (videoId is String) {
@@ -46,15 +46,12 @@ class YoutubeHistoryItem {
               YoutubeHistoryItem(
                 videoId: videoId,
                 title: _textOf(video['title']) ?? videoId,
-                channelName:
-                    _textOf(video['ownerText']) ??
+                channelName: _textOf(video['ownerText']) ??
                     _textOf(video['longBylineText']),
-                channelId:
-                    _browseIdOf(video['ownerText']) ??
+                channelId: _browseIdOf(video['ownerText']) ??
                     _browseIdOf(video['longBylineText']),
                 thumbnailUrl: _thumbnailOf(video['thumbnail']),
-                viewsText:
-                    _textOf(video['viewCountText']) ??
+                viewsText: _textOf(video['viewCountText']) ??
                     _textOf(video['shortViewCountText']),
                 publishedText: _textOf(video['publishedTimeText']),
                 durationText: _textOf(video['lengthText']),
@@ -166,6 +163,43 @@ class YoutubeHistoryItem {
     }
 
     visit(json);
+
+    // Last resort for layouts none of the renderers above match:
+    // any node carrying an 11-char videoId plus a title.
+    if (items.isEmpty) {
+      void scan(Object? node) {
+        if (node is Map<String, dynamic>) {
+          final videoId = node['videoId'];
+          if (videoId is String && videoId.length == 11) {
+            add(YoutubeHistoryItem(
+              videoId: videoId,
+              title: _textOf(node['title']) ?? videoId,
+              channelName: _textOf(node['ownerText']) ??
+                  _textOf(node['longBylineText']) ??
+                  _textOf(node['shortBylineText']),
+              channelId: _browseIdOf(node['ownerText']) ??
+                  _browseIdOf(node['longBylineText']) ??
+                  _browseIdOf(node['shortBylineText']),
+              thumbnailUrl: _thumbnailOf(node['thumbnail']),
+              viewsText: _textOf(node['viewCountText']) ??
+                  _textOf(node['shortViewCountText']),
+              publishedText: _textOf(node['publishedTimeText']),
+              durationText: _textOf(node['lengthText']),
+            ));
+          }
+          for (final child in node.values) {
+            scan(child);
+          }
+        } else if (node is List) {
+          for (final child in node) {
+            scan(child);
+          }
+        }
+      }
+
+      scan(json);
+    }
+
     return items;
   }
 

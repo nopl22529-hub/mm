@@ -39,7 +39,8 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
 
   static const _clientId = String.fromEnvironment(
     'YOUTUBE_CLIENT_ID',
-    defaultValue: '861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com',
+    defaultValue:
+        '861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com',
   );
   static const _clientSecret = String.fromEnvironment(
     'YOUTUBE_CLIENT_SECRET',
@@ -556,7 +557,13 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
           clientNameId: tv ? _tvClientNameId : '1',
         );
         final subs = parse(data);
-        return subs.isEmpty ? null : subs;
+        if (subs.isEmpty) {
+          debugPrint('[InnertubeAuth] fetchSubscriptions $endpoint '
+              '(${tv ? 'TV' : 'WEB'}) returned no channels; '
+              'top-level keys: ${data.keys.toList()}');
+          return null;
+        }
+        return subs;
       } on YoutubeAuthException catch (e) {
         lastError = e;
         debugPrint(
@@ -567,19 +574,24 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
       }
     }
 
+    // TV first: device-flow OAuth tokens are only accepted by the
+    // TV client (the Phase 2 lesson); WEB is the fallback.
     final attempts = <Future<List<YoutubeSubscription>?> Function()>[
-      () => attempt('browse', {
-        'browseId': 'FEchannels',
-      }, YoutubeSubscription.fromChannelsFeedResponse),
-      () => attempt(
-        'browse',
-        {'browseId': 'FEchannels'},
-        YoutubeSubscription.fromChannelsFeedResponse,
-        tv: true,
-      ),
-      () => attempt('guide', {}, YoutubeSubscription.fromGuideResponse),
       () =>
           attempt('guide', {}, YoutubeSubscription.fromGuideResponse, tv: true),
+      () => attempt(
+            'browse',
+            {'browseId': 'FEchannels'},
+            YoutubeSubscription.fromChannelsFeedResponse,
+            tv: true,
+          ),
+      () => attempt(
+          'browse',
+          {
+            'browseId': 'FEchannels',
+          },
+          YoutubeSubscription.fromChannelsFeedResponse),
+      () => attempt('guide', {}, YoutubeSubscription.fromGuideResponse),
     ];
 
     for (final run in attempts) {
@@ -595,7 +607,9 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
   @override
   Future<List<YoutubeHistoryItem>> fetchHistory() async {
     YoutubeAuthException? lastError;
-    for (final tv in const [false, true]) {
+    // TV first: device-flow OAuth tokens are only accepted by the
+    // TV client (the Phase 2 lesson); WEB is the fallback.
+    for (final tv in const [true, false]) {
       try {
         final data = await innertubePost(
           'browse',
@@ -606,6 +620,8 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
         );
         final items = YoutubeHistoryItem.fromHistoryResponse(data);
         if (items.isNotEmpty) return items;
+        debugPrint('[InnertubeAuth] fetchHistory (${tv ? 'TV' : 'WEB'}) '
+            'returned no items; top-level keys: ${data.keys.toList()}');
       } on YoutubeAuthException catch (e) {
         lastError = e;
         debugPrint(

@@ -34,6 +34,32 @@ class YoutubeSubscription {
             }
           }
         }
+
+        // Newer FEchannels layout: channels as lockups.
+        final lockup = node['lockupViewModel'];
+        if (lockup is Map<String, dynamic>) {
+          final contentId = lockup['contentId'];
+          final contentType = lockup['contentType'];
+          if (contentId is String &&
+              contentId.startsWith('UC') &&
+              (contentType == null ||
+                  contentType.toString().contains('CHANNEL'))) {
+            String? title;
+            final metadata = lockup['metadata'];
+            if (metadata is Map<String, dynamic>) {
+              final meta = metadata['lockupMetadataViewModel'];
+              if (meta is Map<String, dynamic>) {
+                title = _textOf(meta['title']);
+              }
+            }
+            found[contentId] = YoutubeSubscription(
+              channelId: contentId,
+              title: title ?? contentId,
+              avatarUrl: _lockupAvatar(lockup),
+            );
+          }
+        }
+
         for (final child in node.values) {
           visit(child);
         }
@@ -91,6 +117,8 @@ class YoutubeSubscription {
   static String? _textOf(Object? node) {
     if (node is String) return node;
     if (node is Map<String, dynamic>) {
+      final content = node['content'];
+      if (content is String) return content;
       final simple = node['simpleText'];
       if (simple is String) return simple;
       final runs = node['runs'];
@@ -102,6 +130,36 @@ class YoutubeSubscription {
           }
         }
         if (buffer.isNotEmpty) return buffer.toString();
+      }
+    }
+    return null;
+  }
+
+  static String? _lockupAvatar(Map<String, dynamic> lockup) {
+    final image = lockup['contentImage'];
+    if (image is Map<String, dynamic>) {
+      for (final key in const ['avatarViewModel', 'thumbnailViewModel']) {
+        final viewModel = image[key];
+        if (viewModel is Map<String, dynamic>) {
+          final inner = viewModel['image'];
+          final url = _thumbnailOf(inner) ?? _sourcesOf(inner);
+          if (url != null) return url;
+        }
+      }
+    }
+    return null;
+  }
+
+  static String? _sourcesOf(Object? node) {
+    if (node is Map<String, dynamic>) {
+      final sources = node['sources'];
+      if (sources is List && sources.isNotEmpty) {
+        final last = sources.last;
+        if (last is Map<String, dynamic> && last['url'] is String) {
+          var url = last['url'] as String;
+          if (url.startsWith('//')) url = 'https:$url';
+          return url;
+        }
       }
     }
     return null;

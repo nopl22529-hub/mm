@@ -71,6 +71,49 @@ void main() {
       expect(subs[1].title, 'Channel B');
     });
 
+    test('parses FEchannels lockup layout', () {
+      final subs = YoutubeSubscription.fromChannelsFeedResponse({
+        'contents': [
+          {
+            'lockupViewModel': {
+              'contentId': 'UCxyz789',
+              'contentType': 'LOCKUP_CONTENT_TYPE_CHANNEL',
+              'contentImage': {
+                'avatarViewModel': {
+                  'image': {
+                    'sources': [
+                      {'url': '//yt3.example/c.jpg'},
+                    ],
+                  },
+                },
+              },
+              'metadata': {
+                'lockupMetadataViewModel': {
+                  'title': {'content': 'Channel C'},
+                },
+              },
+            },
+          },
+          {
+            'lockupViewModel': {
+              'contentId': 'dQw4w9WgXcQ',
+              'contentType': 'LOCKUP_CONTENT_TYPE_VIDEO',
+              'metadata': {
+                'lockupMetadataViewModel': {
+                  'title': {'content': 'A Video'},
+                },
+              },
+            },
+          },
+        ],
+      });
+
+      expect(subs.length, 1);
+      expect(subs.single.channelId, 'UCxyz789');
+      expect(subs.single.title, 'Channel C');
+      expect(subs.single.avatarUrl, 'https://yt3.example/c.jpg');
+    });
+
     test('parses guide response', () {
       final subs = YoutubeSubscription.fromGuideResponse({
         'items': [
