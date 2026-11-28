@@ -99,6 +99,43 @@ void main() {
       expect(engagement.subscribeParams, 'sub-p');
     });
 
+    test('parses TV toggle button shapes', () {
+      final engagement = VideoEngagement.fromNextResponse({
+        'contents': {
+          'segmentedLikeDislikeButtonRenderer': {
+            'likeButton': {
+              'toggleButtonRenderer': {
+                'isToggled': true,
+                'defaultServiceEndpoint': {
+                  'likeEndpoint': {
+                    'status': 'LIKE',
+                    'target': {'videoId': 'abc'},
+                    'params': 'tv-like-p',
+                  },
+                },
+              },
+            },
+            'dislikeButton': {
+              'toggleButtonRenderer': {
+                'isToggled': false,
+                'defaultServiceEndpoint': {
+                  'likeEndpoint': {
+                    'status': 'DISLIKE',
+                    'target': {'videoId': 'abc'},
+                    'params': 'tv-dislike-p',
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(engagement.rating, VideoRating.like);
+      expect(engagement.likeParams, 'tv-like-p');
+      expect(engagement.dislikeParams, 'tv-dislike-p');
+    });
+
     test('defaults when nothing is present', () {
       final engagement = VideoEngagement.fromNextResponse({
         'contents': <String, dynamic>{},

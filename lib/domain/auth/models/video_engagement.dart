@@ -62,6 +62,27 @@ class VideoEngagement {
           if (likeStatus == 'DISLIKE') rating = VideoRating.dislike;
         }
 
+        // TV/older renderers: a toggled toggleButtonRenderer whose
+        // service endpoint is a likeEndpoint with a status.
+        if (node['isToggled'] == true) {
+          for (final key in const [
+            'defaultServiceEndpoint',
+            'toggledServiceEndpoint',
+            'serviceEndpoint',
+          ]) {
+            final endpoint = node[key];
+            if (endpoint is Map<String, dynamic>) {
+              final like = endpoint['likeEndpoint'];
+              if (like is Map<String, dynamic>) {
+                if (like['status'] == 'LIKE') rating = VideoRating.like;
+                if (like['status'] == 'DISLIKE') {
+                  rating = VideoRating.dislike;
+                }
+              }
+            }
+          }
+        }
+
         // New view models mark the toggled side of the segmented
         // like/dislike button instead of a single status field.
         final likeButton = node['likeButtonViewModel'];

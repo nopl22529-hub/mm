@@ -304,6 +304,12 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
         contentType: Headers.jsonContentType,
         headers: {
           if (token != null) 'Authorization': 'Bearer $token',
+          // OAuth-authenticated Innertube requests must carry a
+          // request timestamp; Google rejects them with HTTP 400
+          // without it (ytmusicapi does the same for OAuth auth).
+          if (token != null)
+            'X-Goog-Request-Time':
+                (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
           'X-YouTube-Client-Name': clientNameId,
           'X-YouTube-Client-Version': version,
         },
@@ -313,8 +319,18 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
     if (response.statusCode == 200 && data is Map<String, dynamic>) {
       return data;
     }
+    var detail = '';
+    if (data is Map<String, dynamic>) {
+      final error = data['error'];
+      if (error is Map<String, dynamic>) {
+        final message = error['message'];
+        final status = error['status'];
+        if (message is String && message.isNotEmpty) detail = ' $message';
+        if (status is String && status.isNotEmpty) detail += ' ($status)';
+      }
+    }
     throw YoutubeAuthException(
-      'Innertube $endpoint failed (HTTP ${response.statusCode}).',
+      'Innertube $endpoint failed (HTTP ${response.statusCode}).$detail',
     );
   }
 
@@ -394,6 +410,15 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
   );
 
   // --- Phase 2: like / subscribe on the real account ---
+  //
+  // Device-flow (TV OAuth) tokens are only accepted by YouTube's TV
+  // client: the WEB client answers HTTP 400 for signed-in calls made
+  // with them. All Phase 2 calls therefore use TVHTML5, like the
+  // accounts_list lookup in Phase 1.
+
+  static const _tvClientName = 'TVHTML5';
+  static const _tvClientVersion = '7.20260311.12.00';
+  static const _tvClientNameId = '7';
 
   final Map<String, (VideoEngagement, DateTime)> _engagementCache = {};
 
@@ -406,11 +431,13 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
       return cached.$1;
     }
     try {
-      final data = await innertubePost('next', {
-        'videoId': videoId,
-        'contentCheckOk': true,
-        'racyCheckOk': true,
-      });
+      final data = await innertubePost(
+        'next',
+        {'videoId': videoId, 'contentCheckOk': true, 'racyCheckOk': true},
+        clientName: _tvClientName,
+        clientVersion: _tvClientVersion,
+        clientNameId: _tvClientNameId,
+      );
       final engagement = VideoEngagement.fromNextResponse(data);
       _engagementCache[videoId] = (engagement, DateTime.now());
       return engagement;
@@ -431,10 +458,16 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
       VideoRating.dislike => ('like/dislike', engagement?.dislikeParams),
       VideoRating.none => ('like/removelike', engagement?.removeLikeParams),
     };
-    await innertubePost(endpoint, {
-      'target': {'videoId': videoId},
-      if (params != null) 'params': params,
-    });
+    await innertubePost(
+      endpoint,
+      {
+        'target': {'videoId': videoId},
+        if (params != null) 'params': params,
+      },
+      clientName: _tvClientName,
+      clientVersion: _tvClientVersion,
+      clientNameId: _tvClientNameId,
+    );
     final cached = _engagementCache[videoId];
     if (cached != null) {
       _engagementCache[videoId] = (
@@ -454,8 +487,13 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
       subscribe ? 'subscription/subscribe' : 'subscription/unsubscribe',
       {
         'channelIds': [channelId],
-        if (params != null) 'params': params,
+        // Fixed params from YouTube's own subscribe-button commands,
+        // used when the watch response did not provide its own.
+        'params': params ?? (subscribe ? 'EgIIAhgA' : 'CgIIAhgA'),
       },
+      clientName: _tvClientName,
+      clientVersion: _tvClientVersion,
+      clientNameId: _tvClientNameId,
     );
   }
 
