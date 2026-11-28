@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fluxtube/core/api_client.dart';
+import 'package:fluxtube/domain/auth/models/create_comment_params.dart';
 import 'package:fluxtube/domain/auth/models/device_code_response.dart';
 import 'package:fluxtube/domain/auth/models/video_engagement.dart';
 import 'package:fluxtube/domain/auth/models/youtube_account.dart';
@@ -503,6 +504,31 @@ class InnertubeAuthImpl extends ChangeNotifier implements YoutubeAuthService {
       await setSubscribed(channelId, subscribe);
     } catch (e) {
       debugPrint('[InnertubeAuth] syncSubscription failed: $e');
+    }
+  }
+
+  // --- Phase 3: posting comments ---
+
+  @override
+  Future<void> postComment(String videoId, String text) async {
+    final body = {
+      'createCommentParams': encodeCreateCommentParams(videoId),
+      'commentText': text,
+    };
+    // YouTube.js posts comments with the WEB client even for OAuth
+    // sessions; if YouTube rejects that for this token, fall back to
+    // the TV client used by the other Phase 2 calls.
+    try {
+      await innertubePost('comment/create_comment', body);
+    } on YoutubeAuthException catch (e) {
+      debugPrint('[InnertubeAuth] postComment (WEB) failed: $e');
+      await innertubePost(
+        'comment/create_comment',
+        body,
+        clientName: _tvClientName,
+        clientVersion: _tvClientVersion,
+        clientNameId: _tvClientNameId,
+      );
     }
   }
 

@@ -11,6 +11,7 @@ import 'package:fluxtube/core/operations/math_operations.dart';
 import 'package:fluxtube/core/player/global_player_controller.dart';
 import 'package:fluxtube/domain/watch/models/newpipe/newpipe_comments_resp.dart';
 import 'package:fluxtube/generated/l10n.dart';
+import 'package:fluxtube/infrastructure/auth/innertube_auth_impl.dart';
 import 'package:fluxtube/widgets/indicator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,6 +36,8 @@ class NewPipeCommentSection extends StatefulWidget {
 
 class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
   late ScrollController _scrollController;
+  final TextEditingController _commentController = TextEditingController();
+  bool _postingComment = false;
 
   @override
   void initState() {
@@ -47,7 +50,95 @@ class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _postComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty || _postingComment) return;
+
+    final auth = InnertubeAuthImpl();
+    if (!auth.isSignedIn) {
+      _showMessage('Sign in to YouTube in Settings to comment.');
+      return;
+    }
+
+    setState(() => _postingComment = true);
+    try {
+      await auth.postComment(widget.videoId, text);
+      if (!mounted) return;
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+      _showMessage('Comment posted.');
+      // Reload the list so the new comment shows up.
+      BlocProvider.of<WatchBloc>(context)
+          .add(WatchEvent.getNewPipeComments(id: widget.videoId));
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Could not post your comment. $e');
+    } finally {
+      if (mounted) setState(() => _postingComment = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildCommentInput(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final account = InnertubeAuthImpl().account;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (account?.avatarUrl != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 10, bottom: 4),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundImage: NetworkImage(account!.avatarUrl!),
+              ),
+            ),
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                hintText: 'Add a comment…',
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: _postingComment ? null : _postComment,
+            icon: _postingComment
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send, size: 18),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onScroll() {
@@ -83,6 +174,8 @@ class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildHeader(theme, isDark),
+          if (widget.state.newPipeComments.isDisabled != true)
+            _buildCommentInput(theme),
           Flexible(
             child: BlocBuilder<WatchBloc, WatchState>(
               buildWhen: (previous, current) =>
@@ -154,7 +247,8 @@ class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
     }
 
     final comments = state.newPipeComments.comments ?? [];
-    final hasMore = !state.isMoreNewPipeCommentsFetchCompleted &&
+    final hasMore =
+        !state.isMoreNewPipeCommentsFetchCompleted &&
         state.newPipeComments.nextPage != null;
 
     return ListView.builder(
@@ -170,7 +264,8 @@ class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
             index: index,
             locals: widget.locals,
             videoId: widget.videoId,
-            onReplyTap: comment.replyCount != null &&
+            onReplyTap:
+                comment.replyCount != null &&
                     comment.replyCount! > 0 &&
                     comment.repliesPage != null
                 ? () => _showRepliesSheet(context, comment)
@@ -181,11 +276,11 @@ class _NewPipeCommentSectionState extends State<NewPipeCommentSection> {
                 // Enable PIP before navigating to channel
                 BlocProvider.of<WatchBloc>(context)
                     .add(WatchEvent.togglePip(value: true));
-                context.pushNamed('channel', pathParameters: {
-                  'channelId': channelId,
-                }, queryParameters: {
-                  'avatarUrl': comment.authorAvatarUrl,
-                });
+                context.pushNamed(
+                  'channel',
+                  pathParameters: {'channelId': channelId},
+                  queryParameters: {'avatarUrl': comment.authorAvatarUrl},
+                );
               }
             },
           );
@@ -301,7 +396,8 @@ class _ModernCommentCard extends StatelessWidget {
                   dimension: avatarSize,
                   child: ColoredBox(
                     color: scheme.surfaceContainerHighest,
-                    child: comment.authorAvatarUrl != null &&
+                    child:
+                        comment.authorAvatarUrl != null &&
                             comment.authorAvatarUrl!.isNotEmpty
                         ? ThumbnailImage.small(
                             url: comment.authorAvatarUrl!,
@@ -332,8 +428,11 @@ class _ModernCommentCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          Icon(CupertinoIcons.pin_fill,
-                              size: 11, color: scheme.onSurfaceVariant),
+                          Icon(
+                            CupertinoIcons.pin_fill,
+                            size: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
                           Text(locals.pinned, style: metaStyle),
                         ],
@@ -358,8 +457,11 @@ class _ModernCommentCard extends StatelessWidget {
                       ),
                       if (comment.authorVerified == true) ...[
                         const SizedBox(width: 3),
-                        Icon(CupertinoIcons.checkmark_seal_fill,
-                            size: 12, color: scheme.onSurfaceVariant),
+                        Icon(
+                          CupertinoIcons.checkmark_seal_fill,
+                          size: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ],
                       // YouTube already appends "(edited)" to this text.
                       if (comment.uploadDate != null &&
@@ -383,19 +485,27 @@ class _ModernCommentCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(CupertinoIcons.hand_thumbsup,
-                          size: 15, color: scheme.onSurfaceVariant),
+                      Icon(
+                        CupertinoIcons.hand_thumbsup,
+                        size: 15,
+                        color: scheme.onSurfaceVariant,
+                      ),
                       if (likeCount > 0) ...[
                         const SizedBox(width: 5),
-                        Text(formatCount(likeCount.toString()),
-                            style: metaStyle),
+                        Text(
+                          formatCount(likeCount.toString()),
+                          style: metaStyle,
+                        ),
                       ],
                       if (comment.isHearted == true) ...[
                         const SizedBox(width: 16),
                         Tooltip(
                           message: locals.heartedByCreator,
-                          child: const Icon(CupertinoIcons.heart_fill,
-                              size: 14, color: Color(0xFFFF525E)),
+                          child: const Icon(
+                            CupertinoIcons.heart_fill,
+                            size: 14,
+                            color: Color(0xFFFF525E),
+                          ),
                         ),
                       ],
                     ],
@@ -460,20 +570,19 @@ class _CommentsStatusView extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-            if (action != null) ...[
-              const SizedBox(height: 16),
-              action!,
-            ],
+            if (action != null) ...[const SizedBox(height: 16), action!],
           ],
         ),
       ),
@@ -544,15 +653,13 @@ class _CommentTextWidgetState extends State<_CommentTextWidget> {
   TextSpan _parseCommentText(BuildContext context, String htmlText) {
     final theme = Theme.of(context);
 
-    final defaultStyle = theme.textTheme.bodyMedium?.copyWith(
+    final defaultStyle =
+        theme.textTheme.bodyMedium?.copyWith(
           fontSize: widget.isReply ? 13 : 14,
           height: 1.4,
           color: theme.colorScheme.onSurface,
         ) ??
-        TextStyle(
-          fontSize: widget.isReply ? 13 : 14,
-          height: 1.4,
-        );
+        TextStyle(fontSize: widget.isReply ? 13 : 14, height: 1.4);
 
     final linkStyle = defaultStyle.copyWith(
       color: theme.colorScheme.primary,
@@ -596,22 +703,26 @@ class _CommentTextWidgetState extends State<_CommentTextWidget> {
     final matches = <_MatchInfo>[];
 
     for (final match in timestampPattern.allMatches(plainText)) {
-      matches.add(_MatchInfo(
-        start: match.start,
-        end: match.end,
-        text: match.group(0)!,
-        type: _MatchType.timestamp,
-      ));
+      matches.add(
+        _MatchInfo(
+          start: match.start,
+          end: match.end,
+          text: match.group(0)!,
+          type: _MatchType.timestamp,
+        ),
+      );
     }
 
     for (final match in urlPattern.allMatches(plainText)) {
-      matches.add(_MatchInfo(
-        start: match.start,
-        end: match.end,
-        text: match.group(0)!,
-        type: _MatchType.url,
-        url: match.group(0),
-      ));
+      matches.add(
+        _MatchInfo(
+          start: match.start,
+          end: match.end,
+          text: match.group(0)!,
+          type: _MatchType.url,
+          url: match.group(0),
+        ),
+      );
     }
 
     for (final entry in linkMap.entries) {
@@ -622,19 +733,23 @@ class _CommentTextWidgetState extends State<_CommentTextWidget> {
         final index = plainText.indexOf(linkText, searchStart);
         if (index == -1) break;
 
-        final overlaps = matches.any((m) =>
-            (index >= m.start && index < m.end) ||
-            (index + linkText.length > m.start &&
-                index + linkText.length <= m.end));
+        final overlaps = matches.any(
+          (m) =>
+              (index >= m.start && index < m.end) ||
+              (index + linkText.length > m.start &&
+                  index + linkText.length <= m.end),
+        );
 
         if (!overlaps) {
-          matches.add(_MatchInfo(
-            start: index,
-            end: index + linkText.length,
-            text: linkText,
-            type: _MatchType.url,
-            url: url,
-          ));
+          matches.add(
+            _MatchInfo(
+              start: index,
+              end: index + linkText.length,
+              text: linkText,
+              type: _MatchType.url,
+              url: url,
+            ),
+          );
         }
         searchStart = index + linkText.length;
       }
@@ -651,33 +766,36 @@ class _CommentTextWidgetState extends State<_CommentTextWidget> {
 
     for (final match in nonOverlapping) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: plainText.substring(lastEnd, match.start),
-          style: defaultStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: plainText.substring(lastEnd, match.start),
+            style: defaultStyle,
+          ),
+        );
       }
 
-      spans.add(TextSpan(
-        text: match.text,
-        style: linkStyle,
-        recognizer: TapGestureRecognizer()
-          ..onTap = () {
-            if (match.type == _MatchType.timestamp) {
-              _onTimestampTap(match.text);
-            } else {
-              _onUrlTap(match.url ?? match.text);
-            }
-          },
-      ));
+      spans.add(
+        TextSpan(
+          text: match.text,
+          style: linkStyle,
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              if (match.type == _MatchType.timestamp) {
+                _onTimestampTap(match.text);
+              } else {
+                _onUrlTap(match.url ?? match.text);
+              }
+            },
+        ),
+      );
 
       lastEnd = match.end;
     }
 
     if (lastEnd < plainText.length) {
-      spans.add(TextSpan(
-        text: plainText.substring(lastEnd),
-        style: defaultStyle,
-      ));
+      spans.add(
+        TextSpan(text: plainText.substring(lastEnd), style: defaultStyle),
+      );
     }
 
     return TextSpan(
@@ -688,8 +806,10 @@ class _CommentTextWidgetState extends State<_CommentTextWidget> {
   }
 
   void _onTimestampTap(String timestamp) {
-    final parts =
-        timestamp.split(':').map((e) => int.tryParse(e) ?? 0).toList();
+    final parts = timestamp
+        .split(':')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
     int seconds = 0;
     if (parts.length == 3) {
       seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -829,12 +949,12 @@ class _ModernRepliesSheetState extends State<_ModernRepliesSheet> {
                           FilledButton.tonal(
                             onPressed: () {
                               context.read<WatchBloc>().add(
-                                    WatchEvent.getNewPipeCommentReplies(
-                                      videoId: widget.videoId,
-                                      repliesPage:
-                                          widget.parentComment.repliesPage!,
-                                    ),
-                                  );
+                                WatchEvent.getNewPipeCommentReplies(
+                                  videoId: widget.videoId,
+                                  repliesPage:
+                                      widget.parentComment.repliesPage!,
+                                ),
+                              );
                             },
                             child: Text(widget.locals.retry),
                           ),
@@ -846,7 +966,7 @@ class _ModernRepliesSheetState extends State<_ModernRepliesSheet> {
                   final replies = state.newPipeCommentReplies.comments ?? [];
                   final isLoadingMore =
                       state.fetchMoreNewPipeCommentRepliesStatus ==
-                          ApiStatus.loading;
+                      ApiStatus.loading;
 
                   return ListView.builder(
                     controller: _scrollController,
@@ -862,18 +982,21 @@ class _ModernRepliesSheetState extends State<_ModernRepliesSheet> {
                           videoId: widget.videoId,
                           isReply: true,
                           onProfileTap: () {
-                            final channelId =
-                                _extractChannelId(reply.authorUrl);
+                            final channelId = _extractChannelId(
+                              reply.authorUrl,
+                            );
                             if (channelId != null) {
                               // Enable PIP before navigating to channel
                               BlocProvider.of<WatchBloc>(context)
                                   .add(WatchEvent.togglePip(value: true));
                               Navigator.pop(context);
-                              context.pushNamed('channel', pathParameters: {
-                                'channelId': channelId,
-                              }, queryParameters: {
-                                'avatarUrl': reply.authorAvatarUrl,
-                              });
+                              context.pushNamed(
+                                'channel',
+                                pathParameters: {'channelId': channelId},
+                                queryParameters: {
+                                  'avatarUrl': reply.authorAvatarUrl,
+                                },
+                              );
                             }
                           },
                         );
@@ -922,8 +1045,11 @@ class _ModernRepliesSheetState extends State<_ModernRepliesSheet> {
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: Icon(CupertinoIcons.xmark,
-                size: 20, color: scheme.onSurfaceVariant),
+            icon: Icon(
+              CupertinoIcons.xmark,
+              size: 20,
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -976,9 +1102,10 @@ class _ShimmerCardState extends State<_ShimmerCard>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat();
-    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: -1.0,
+      end: 2.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -989,8 +1116,9 @@ class _ShimmerCardState extends State<_ShimmerCard>
 
   @override
   Widget build(BuildContext context) {
-    final baseColor =
-        widget.isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariant;
+    final baseColor = widget.isDark
+        ? AppColors.surfaceVariantDark
+        : AppColors.surfaceVariant;
     final highlightColor = widget.isDark
         ? AppColors.surfaceVariantDark.withValues(alpha: 0.7)
         : Colors.white.withValues(alpha: 0.5);

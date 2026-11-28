@@ -94,4 +94,9 @@ abstract class YoutubeAuthService {
   /// Fire-and-forget [setSubscribed] for UI that already updated
   /// local state: no-op when signed out, failures are only logged.
   Future<void> syncSubscription(String channelId, bool subscribe);
+
+  /// Posts a top-level comment on [videoId] as the signed-in
+  /// account (`comment/create_comment`).
+  /// Throws [YoutubeAuthException] on failure.
+  Future<void> postComment(String videoId, String text);
 }
